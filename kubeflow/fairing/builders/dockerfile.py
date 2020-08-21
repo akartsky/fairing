@@ -34,7 +34,7 @@ def write_dockerfile(
     content_lines.append(copy_context)
 
     if docker_command:
-        content_lines.append("CMD {}".format(" ".join(docker_command)))
+        content_lines.append("ENTRYPOINT {}".format(" ".join(docker_command)))
 
     content = "\n".join(content_lines)
     with open(destination, 'w') as f:

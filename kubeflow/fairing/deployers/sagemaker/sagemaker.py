@@ -66,6 +66,7 @@ class SageMakerJob(DeployerInterface):
         image_uri = pod_template_spec.containers[0].image
         print(image_uri)
         job_name = f"fairingjob-{utils.random_tag()}"
+        print(job_name)
         region = "us-east-1"
         client = self.get_sagemaker_client(region)
         request = {}
