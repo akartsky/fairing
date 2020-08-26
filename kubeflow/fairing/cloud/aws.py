@@ -172,3 +172,8 @@ def create_ecr_registry(registry, repository):
                                          repositoryNames=[repository])
     except ClientError:
         ecr_client.create_repository(repositoryName=repository)
+
+
+def get_docker_registry(self, region):
+    return f"{guess_account_id()}.dkr.ecr.{region}.amazonaws.com"
+    

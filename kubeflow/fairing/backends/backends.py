@@ -14,6 +14,7 @@ from kubeflow.fairing.builders.append.append import AppendBuilder
 from kubeflow.fairing.deployers.gcp.gcp import GCPJob
 from kubeflow.fairing.deployers.job.job import Job
 from kubeflow.fairing.deployers.serving.serving import Serving
+from kubeflow.fairing.deployers.sagemaker.sagemaker import SageMakerJob
 from kubeflow.fairing.cloud import aws
 from kubeflow.fairing.cloud import azure
 from kubeflow.fairing.cloud import gcp
@@ -253,14 +254,19 @@ class GKEBackend(KubernetesBackend):
         return gcp.get_default_docker_registry()
 
 
-class AWSBackend(KubernetesBackend):
-    """ Use to create a builder instance and create a deployer to be used with a traing job
+class AWSBackend(BackendInterface):
+    """ Use to create a builder instance and create a deployer to be used with a training job
     or a serving job for the AWS backend.
     """
 
-    def __init__(self, namespace=None, build_context_source=None):
-        build_context_source = build_context_source or s3_context.S3ContextSource()
-        super(AWSBackend, self).__init__(namespace, build_context_source)
+    def __init__(self, region=None, role=None, instance_count=None, instance_type=None, job_config={}, stream_logs=False):
+        super(AWSBackend, self).__init__()
+        self._region = region
+        self._role = role
+        self._instance_count = instance_count
+        self._instance_type = instance_type
+        self._job_config = job_config
+        self._stream_logs = stream_logs
 
     def get_builder(self, preprocessor, base_image, registry, needs_deps_installation=True,
                     pod_spec_mutators=None):
@@ -278,9 +284,30 @@ class AWSBackend(KubernetesBackend):
         """
         pod_spec_mutators = pod_spec_mutators or []
         pod_spec_mutators.append(aws.add_aws_credentials_if_exists)
+        return DockerBuilder(preprocessor=preprocessor, base_image=base_image, registry=registry)
         if aws.is_ecr_registry(registry):
             pod_spec_mutators.append(aws.add_ecr_config)
             aws.create_ecr_registry(registry, constants.DEFAULT_IMAGE_NAME)
+
+        if not needs_deps_installation:
+            return AppendBuilder(preprocessor=preprocessor,
+                                 base_image=base_image,
+                                 registry=registry)
+        elif utils.is_running_in_k8s():
+            return ClusterBuilder(preprocessor=preprocessor,
+                                  base_image=base_image,
+                                  registry=registry,
+                                  pod_spec_mutators=pod_spec_mutators,
+                                  context_source=gcs_context.GCSContextSource(
+                                      namespace=utils.get_default_target_namespace()))
+        elif ml_tasks_utils.is_docker_daemon_exists():
+            return DockerBuilder(preprocessor=preprocessor,
+                                 base_image=base_image,
+                                 registry=registry)
+        else:
+            raise RuntimeError(
+                "Not able to guess the right builder for this job!")
+
         return super(AWSBackend, self).get_builder(preprocessor,
                                                    base_image,
                                                    registry,
@@ -297,7 +324,8 @@ class AWSBackend(KubernetesBackend):
         """
         pod_spec_mutators = pod_spec_mutators or []
         pod_spec_mutators.append(aws.add_aws_credentials_if_exists)
-        return Job(namespace=self._namespace, pod_spec_mutators=pod_spec_mutators)
+        return SageMakerJob(self._region, self._role, self._instance_count, self._instance_type, self._job_config, self._stream_logs)
+        #return Job(namespace=self._namespace, pod_spec_mutators=pod_spec_mutators)
 
     def get_serving_deployer(self, model_class, service_type='ClusterIP', # pylint:disable=arguments-differ
                              pod_spec_mutators=None):
@@ -309,8 +337,9 @@ class AWSBackend(KubernetesBackend):
             (Default value = None)
 
         """
-        return Serving(model_class, namespace=self._namespace, service_type=service_type,
-                       pod_spec_mutators=pod_spec_mutators)
+        raise NotImplementedError("AWS managed serving is not integrated yet")
+    def get_docker_registry(self):
+        return aws.get_default_docker_registry(self._region)
 
 
 class IBMCloudBackend(KubernetesBackend):

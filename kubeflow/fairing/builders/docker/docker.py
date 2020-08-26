@@ -20,6 +20,7 @@ class DockerBuilder(BaseBuilder):
                  preprocessor=None,
                  push=True,
                  dockerfile_path=None):
+        print("DOCKER BUIDLER")
         super().__init__(
             registry=registry,
             image_name=image_name,
