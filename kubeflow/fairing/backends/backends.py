@@ -284,7 +284,6 @@ class AWSBackend(BackendInterface):
         """
         pod_spec_mutators = pod_spec_mutators or []
         pod_spec_mutators.append(aws.add_aws_credentials_if_exists)
-        return DockerBuilder(preprocessor=preprocessor, base_image=base_image, registry=registry)
         if aws.is_ecr_registry(registry):
             pod_spec_mutators.append(aws.add_ecr_config)
             aws.create_ecr_registry(registry, constants.DEFAULT_IMAGE_NAME)
@@ -307,12 +306,6 @@ class AWSBackend(BackendInterface):
         else:
             raise RuntimeError(
                 "Not able to guess the right builder for this job!")
-
-        return super(AWSBackend, self).get_builder(preprocessor,
-                                                   base_image,
-                                                   registry,
-                                                   needs_deps_installation,
-                                                   pod_spec_mutators)
 
     def get_training_deployer(self, pod_spec_mutators=None):
         """Creates a deployer to be used with a training job for AWS

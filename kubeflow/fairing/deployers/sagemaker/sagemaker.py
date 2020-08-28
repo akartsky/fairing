@@ -99,7 +99,7 @@ class SageMakerJob(DeployerInterface):
 
 
         return request
-    
+
     def deploy(self, pod_template_spec):
         """Deploys the training job
 
